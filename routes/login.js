@@ -1,4 +1,4 @@
-const passport = require('passport');
+import { authenticate } from 'passport';
 
 const router = require('express').Router();
 
@@ -8,7 +8,7 @@ router.get('/',(req,res)=>{
 })
 
 router.post('/', (req, res, next) => {
-    passport.authenticate('local', (err, user, info) => {
+    authenticate('local', (err, user, info) => {
         if (err) {
             return next(err);
         }
@@ -33,4 +33,4 @@ router.post('/', (req, res, next) => {
     })(req, res, next);
 });
 
-module.exports = router;
+export default router;
