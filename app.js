@@ -1,16 +1,19 @@
 import express from 'express';
 import 'dotenv/config'
 //contains nested comments route
-import postRouter from './routes/posts'
-
+import postRouter from './routes/posts.js'
+import path from 'path'
 
 const app = express()
-const PORT = process.env.port || 6969
+const PORT = process.env.PORT || 6969
 
+//body parsing middleware
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
 
 //routes
 app.get('/',(req,res)=>{
-    res.sendFile('./views/apiHelp.js')
+    res.sendFile(path.resolve('./views/apiHelp.html'))
 })
 
 app.use('/posts',postRouter);
@@ -23,7 +26,7 @@ app.all('{*splat}',(req,res)=>{
 //error handler for server/db errors
 app.use((err, req, res, next) => {
     console.error(err);
-    res.status(404).json({ error: 'Server error' });
+    res.status(500).json({ error: err });
 });
 
 app.listen(PORT,(err)=>{

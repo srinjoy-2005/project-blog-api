@@ -1,40 +1,60 @@
-import { prisma } from "./lib/prisma.js";
+import { prisma } from './lib/prisma.js'
 
 async function main() {
-  // Create a new user with a post
-  const user = await prisma.user.create({
-    data: {
-      name: "Alice",
-      email: "alice@prisma.io",
-      posts: {
-        create: {
-          title: "Hello World",
-          content: "This is my first post!",
-          published: true,
+    const user = await prisma.user.upsert({
+        where: {
+            username: 'guest'
         },
-      },
-    },
-    include: {
-      posts: true,
-    },
-  });
-  console.log("Created user:", user);
+        update: {},
+        create: {
+            fullname: 'Guest User',
+            username: 'guest',
+            hashedPassword: 'mock-hashed-password'
+        }
+    })
 
-  // Fetch all users with their posts
-  const allUsers = await prisma.user.findMany({
-    include: {
-      posts: true,
-    },
-  });
-  console.log("All users:", JSON.stringify(allUsers, null, 2));
+    const post = await prisma.post.create({
+        data: {
+            title: 'Hello World',
+            body: 'This is a mock blog post.',
+            isPublished: true,
+            author: {
+                connect: {
+                    username: user.username
+                }
+            }
+        }
+    })
+
+    const comment = await prisma.comment.create({
+        data: {
+            text: 'This is a mock comment.',
+            commenter: {
+                connect: {
+                    username: user.username
+                }
+            },
+            commentOn: {
+                connect: {
+                    id: post.id
+                }
+            }
+        }
+    })
+
+    console.log({
+        user,
+        post,
+        comment
+    })
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
-    console.error(e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+    .then(async () => {
+        await prisma.$disconnect()
+    })
+    .catch(async (err) => {
+        console.error(err)
+        await prisma.$disconnect()
+        process.exit(1)
+    })
