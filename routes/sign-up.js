@@ -1,67 +1,59 @@
-const express = require('express')
+import express from 'express'
+import bcrypt from 'bcryptjs'
+import { prisma } from '../lib/prisma.js'
+import { validateSignupData } from '../helpers/sign-up-validation.js'
+
 const router = express.Router()
-const bcrypt=require('bcryptjs')
-const {validateSignupData : validateSignup} = require('../helpers/sign-up-validation')
-const { findUserByUsername, createUser } = require('../store/queries')
+const salt = 10
 
-const salt=10;
-
-async function generateHash(password,salt=10) {
-    const hashedPassword = await bcrypt.hash(password, salt);
-    // console.log('hashed',hashedPassword); 
-    return hashedPassword;
+async function generateHash(password, saltRounds = 10) {
+  return bcrypt.hash(password, saltRounds)
 }
 
-router.get('/',(req,res)=>{
-    res.render('sign-up',{errors:null}) //define errors as null for first time 
+router.get('/', (req, res) => {
+  res.json({ message: 'Sign-up API endpoint' })
 })
 
-router.post('/',async (req,res)=>{
-    try{
-        const body = req.body;
-        // console.log(body);
+router.post('/', async (req, res) => {
+  try {
+    const { isValid, dbData, errors } = validateSignupData(req.body)
 
-        //Validation
-        //validation in helpers/validation
-        const {isValid,dbData,errors}=validateSignup(body);
-
-        if (!isValid) {
-            // Render the page again with error messages
-            return res.render('sign-up', { 
-                errors
-            });
-        }
-
-        const existingUser = await findUserByUsername(dbData.username);
-
-        if (existingUser) {
-            return res.render('sign-up', {
-                errors: ['Username already exists. Please choose another one.']
-            });
-        }
-
-        const hashedPassword = await generateHash(dbData.rawPassword, salt);
-
-        await createUser({
-            username: dbData.username,
-            fullName: dbData.fullname,
-            hashedPassword,
-            membership: dbData.membership
-        });
-
-        res.redirect('/')
-    }catch(error){
-        //race conditions some shii with postgres
-        if (error && error.code === '23505') {
-            return res.render('sign-up', {
-                errors: ['Username already exists. Please choose another one.']
-            });
-        }
-
-        console.log(error);
-        
-        res.status(500).send("Internal Server Error");
+    if (!isValid) {
+      return res.status(400).json({ errors })
     }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { username: dbData.username }
+    })
+
+    if (existingUser) {
+      return res.status(409).json({ error: 'Username already exists. Please choose another one.' })
+    }
+
+    const hashedPassword = await generateHash(dbData.rawPassword, salt)
+
+    const user = await prisma.user.create({
+      data: {
+        username: dbData.username,
+        fullname: dbData.fullname,
+        hashedPassword
+      }
+    })
+
+    return res.status(201).json({
+      id: user.id,
+      username: user.username,
+      fullname: user.fullname,
+      accountCreationDate: user.accountCreationDate
+    })
+  } catch (error) {
+    if (error?.code === 'P2002') {
+      return res.status(409).json({ error: 'Username already exists. Please choose another one.' })
+    }
+
+    console.error(error)
+    return res.status(500).json({ error: 'Internal Server Error' })
+  }
 })
 
-module.exports=router;
+export default router;

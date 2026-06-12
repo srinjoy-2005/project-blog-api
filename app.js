@@ -3,6 +3,9 @@ import 'dotenv/config'
 //contains nested comments route
 import postRouter from './routes/posts.js'
 import path from 'path'
+import signupRouter from './routes/sign-up.js'
+import loginRouter from './routes/login.js'
+import { sign } from 'crypto';
 
 const app = express()
 const PORT = process.env.PORT || 6969
@@ -15,6 +18,9 @@ app.use(express.urlencoded({ extended: true }))
 app.get('/',(req,res)=>{
     res.sendFile(path.resolve('./views/apiHelp.html'))
 })
+
+app.use('/signup', signupRouter);
+app.use('/login', loginRouter);
 
 app.use('/posts',postRouter);
 

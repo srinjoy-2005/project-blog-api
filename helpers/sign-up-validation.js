@@ -1,45 +1,51 @@
-// backend validation of sign up
-
-const SECRET_CODE = 123456;
-
+// helpers/auth-validation.js
 function validateSignupData(data) {
-    const { username, fullname, password, confirmPassword, memcode } = data;
-    const errors = [];
-    let membershipStatus = 0;
+  const { username, fullname, password, confirmPassword } = data || {}
+  const errors = []
+  const cleaned = {
+    username: username?.trim(),
+    fullname: fullname?.trim(),
+    password,
+    confirmPassword
+  }
 
-    const sanitizedUsername = username?.trim();
-    const sanitizedFullname = fullname?.trim();
+  if (!cleaned.username || !cleaned.fullname || !cleaned.password || !cleaned.confirmPassword) {
+    errors.push('All fields are required.')
+  }
 
-    if (!sanitizedUsername || !sanitizedFullname || !password || !confirmPassword) {
-        errors.push("All standard fields are required.");
-        return { isValid: false, errors, dbData: null };
-    }
+  if (cleaned.password !== cleaned.confirmPassword) {
+    errors.push('Passwords do not match.')
+  }
 
-    if (password !== confirmPassword) {
-        errors.push("Passwords do not match.");
-    }
+  if (cleaned.password?.length < 6) {
+    errors.push('Password must be at least 6 characters.')
+  }
 
-    if (password.length < 6) {
-        errors.push("Password must be at least 6 characters long.");
-    }
-
-    if (memcode && Number(memcode) === SECRET_CODE) {
-        membershipStatus = 1;
-    } else if (memcode) {
-        errors.push("Invalid member code.");
-    }
-    //else membershipstatus remains 0
-
-    return {
-        isValid: errors.length === 0,
-        errors,
-        dbData: errors.length === 0 ? {
-            username: sanitizedUsername,
-            fullname: sanitizedFullname,
-            rawPassword: password,
-            membership: membershipStatus
-        } : null
-    };
+  return {
+    isValid: errors.length === 0,
+    errors,
+    dbData: errors.length === 0
+      ? {
+          username: cleaned.username,
+          fullname: cleaned.fullname,
+          rawPassword: cleaned.password
+        }
+      : null
+  }
 }
 
-module.exports = { validateSignupData };
+function validateLoginData(data) {
+  const { username, password } = data || {}
+  const errors = []
+
+  if (!username?.trim()) errors.push('Username is required.')
+  if (!password) errors.push('Password is required.')
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    credentials: { username: username?.trim(), password }
+  }
+}
+
+export { validateSignupData, validateLoginData }
