@@ -2,12 +2,14 @@
 
 import express from 'express'
 import { prisma } from '../lib/prisma.js'
+import { verifyToken } from '../helpers/jwthelper.js'
 
 const router = express.Router({ mergeParams: true })
 
 router.use(express.json())
 
 //get all comments for a post
+//doesnt need auth
 router.get('/', async (req, res, next) => {
     try {
         const comments = await prisma.comment.findMany({
@@ -46,7 +48,8 @@ router.get('/:commentId', async (req, res, next) => {
 })
 
 //post a comment
-router.post('/', async (req, res, next) => {
+//only login uesrs can comment
+router.post('/', verifyToken, async (req, res, next) => {
     try {
         const postId = parseInt(req.params.id)
         const { text, commenterUsername } = req.body
@@ -101,21 +104,27 @@ router.post('/', async (req, res, next) => {
 })
 
 //delete particular comment
-router.delete('/:commentId', async (req, res, next) => {
-    try {
-        const deleteResult = await prisma.comment.deleteMany({
-            where: {
-                id: parseInt(req.params.commentId),
-                commentOnId: parseInt(req.params.id)
-            }
-        })
+//only logged in
+router.delete('/:commentId',  async (req, res, next) => {
 
-        if (deleteResult.count === 0) {
-            return res.status(404).json({ error: 'Comment not found' })
+    try{
+        const id = parseInt(req.params.commentId);
+        const existingComment = await prisma.comment.findUnique({
+            where: { id }
+        })
+        console.log(existingComment);
+
+         if (!existingComment) {
+            return res.status(404).json({ error: 'Post not found' })
         }
 
-        res.status(204).end()
-    } catch (err) {
+        res.redirect('/')
+
+    }catch(err){
+        if (err.code === 'P2025') {
+            return res.status(404).json({ error: 'Post not found' })
+        }
+
         next(err)
     }
 })

@@ -11,3 +11,6 @@ a token blacklist/denylist
 a token version number stored on the user record
 rotate JWT_SECRET to invalidate everything
 But for now, with your current code, JWTs are effectively stateless and not stored on the server.
+
+
+before comments route, post id validity needs to be chekcked

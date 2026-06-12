@@ -3,9 +3,176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Blog API Help</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 24px; max-width: 960px; }
+        h1, h2, h3 { color: #1f2937; }
+        pre { background: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; }
+        .endpoint { margin-bottom: 24px; }
+        .method { display: inline-block; width: 72px; font-weight: 700; }
+        .get { color: #0f9d58; }
+        .post { color: #1a73e8; }
+        .put { color: #f59e0b; }
+        .delete { color: #dc2626; }
+        ul { margin-top: 0; }
+    </style>
 </head>
 <body>
-    <h1>TODO</h1>
+    <h1>Blog API Help</h1>
+    <p>This page documents the available API endpoints for the blog application. The root route <code>/</code> serves this page, and the JSON API endpoints are mounted under <code>/signup</code>, <code>/login</code>, and <code>/posts</code>.</p>
+
+    <section class="endpoint">
+        <h2>Authentication &amp; User Management</h2>
+
+        <h3><span class="method post">POST</span><code>/signup</code></h3>
+        <p>Create a new user account.</p>
+        <strong>Request body</strong> (JSON):
+        <pre>{
+  "username": "string",
+  "fullname": "string",
+  "password": "string"
+}</pre>
+        <strong>Successful response</strong>: <code>201 Created</code>
+        <pre>{
+  "id": 1,
+  "username": "johndoe",
+  "fullname": "John Doe",
+  "accountCreationDate": "2026-06-13T..."
+}</pre>
+        <strong>Errors</strong>:
+        <ul>
+            <li><code>400</code> if validation fails.</li>
+            <li><code>409</code> if the username already exists.</li>
+        </ul>
+
+        <h3><span class="method post">POST</span><code>/login</code></h3>
+        <p>Authenticate a user and receive a JWT token.</p>
+        <strong>Request body</strong> (JSON):
+        <pre>{
+  "username": "string",
+  "password": "string"
+}</pre>
+        <strong>Successful response</strong>: <code>200 OK</code>
+        <p>The response includes an <code>Authorization</code> header with a bearer token and the authenticated user's profile.</p>
+        <pre>{
+  "user": {
+    "id": 1,
+    "username": "johndoe",
+    "fullname": "John Doe",
+    "accountCreationDate": "2026-06-13T..."
+  }
+}</pre>
+        <strong>Errors</strong>:
+        <ul>
+            <li><code>400</code> if payload validation fails.</li>
+            <li><code>401</code> if credentials are incorrect.</li>
+        </ul>
+    </section>
+
+    <section class="endpoint">
+        <h2>Posts</h2>
+
+        <h3><span class="method get">GET</span><code>/posts</code></h3>
+        <p>Retrieve all posts.</p>
+        <strong>Behavior</strong>:
+        <ul>
+            <li>If no valid token is provided, only public fields are returned: <code>id</code>, <code>title</code>, and <code>body</code>.</li>
+            <li>If a valid token is provided, full post records are returned.</li>
+        </ul>
+        <strong>Response</strong>: <code>200 OK</code>
+
+        <h3><span class="method post">POST</span><code>/posts</code></h3>
+        <p>Create a new post. Authentication is optional; unauthenticated posts are saved with author <code>guest</code>.</p>
+        <strong>Request body</strong> (JSON):
+        <pre>{
+  "title": "string",
+  "body": "string"
+}</pre>
+        <strong>Response</strong>: <code>201 Created</code>
+        <strong>Errors</strong>:
+        <ul>
+            <li><code>400</code> if <code>title</code> or <code>body</code> is missing.</li>
+        </ul>
+
+        <h3><span class="method get">GET</span><code>/posts/:id</code></h3>
+        <p>Retrieve a single post by numeric ID.</p>
+        <strong>Response</strong>: <code>200 OK</code>
+        <strong>Errors</strong>:
+        <ul>
+            <li><code>400</code> if the post ID is invalid.</li>
+            <li><code>404</code> if the post is not found.</li>
+        </ul>
+
+        <h3><span class="method put">PUT</span><code>/posts/:id</code></h3>
+        <p>Update an existing post. Requires a valid JWT and the authenticated user must be the author.</p>
+        <strong>Request body</strong> (JSON):
+        <pre>{
+  "title": "string",
+  "body": "string"
+}</pre>
+        <strong>Response</strong>: <code>200 OK</code>
+        <strong>Errors</strong>:
+        <ul>
+            <li><code>400</code> if the post ID is invalid or required fields are missing.</li>
+            <li><code>403</code> if the authenticated user is not the owner.</li>
+            <li><code>404</code> if the post is not found.</li>
+        </ul>
+
+        <h3><span class="method delete">DELETE</span><code>/posts/:id</code></h3>
+        <p>Delete a post by ID. Requires a valid JWT and ownership of the post.</p>
+        <strong>Response</strong>: <code>204 No Content</code>
+        <strong>Errors</strong>:
+        <ul>
+            <li><code>400</code> if the post ID is invalid.</li>
+            <li><code>403</code> if the authenticated user is not the owner.</li>
+            <li><code>404</code> if the post is not found.</li>
+        </ul>
+    </section>
+
+    <section class="endpoint">
+        <h2>Comments</h2>
+        <p>All comment endpoints are nested under <code>/posts/:id/comments</code>.</p>
+
+        <h3><span class="method get">GET</span><code>/posts/:id/comments</code></h3>
+        <p>List all comments for a specific post.</p>
+        <strong>Response</strong>: <code>200 OK</code>
+
+        <h3><span class="method get">GET</span><code>/posts/:id/comments/:commentId</code></h3>
+        <p>Retrieve a single comment by ID for a specified post.</p>
+        <strong>Errors</strong>:
+        <ul>
+            <li><code>404</code> if the comment is not found.</li>
+        </ul>
+
+        <h3><span class="method post">POST</span><code>/posts/:id/comments</code></h3>
+        <p>Add a comment to a post.</p>
+        <strong>Request body</strong> (JSON):
+        <pre>{
+  "text": "string",
+  "commenterUsername": "string"
+}</pre>
+        <strong>Response</strong>: <code>201 Created</code>
+        <strong>Errors</strong>:
+        <ul>
+            <li><code>400</code> if the post ID is invalid or required fields are missing.</li>
+            <li><code>404</code> if the post or commenter username is not found.</li>
+        </ul>
+
+        <h3><span class="method delete">DELETE</span><code>/posts/:id/comments/:commentId</code></h3>
+        <p>Delete a comment by ID from a specific post.</p>
+        <strong>Response</strong>: <code>204 No Content</code>
+        <strong>Errors</strong>:
+        <ul>
+            <li><code>404</code> if the comment is not found.</li>
+        </ul>
+    </section>
+
+    <section class="endpoint">
+        <h2>General Notes</h2>
+        <ul>
+            <li>Routes not found return <code>404</code> with JSON <code>{ "error": "Route not found" }</code>.</li>
+            <li>Unhandled server errors return <code>500</code> with JSON <code>{ "error": "..." }</code>.</li>
+        </ul>
+    </section>
 </body>
 </html>
