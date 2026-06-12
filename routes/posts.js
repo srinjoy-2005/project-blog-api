@@ -2,9 +2,12 @@ import express from 'express'
 import { prisma } from '../lib/prisma.js'
 // import { v4 as uuidv4 } from "uuid";
 import commentRouter from './comments.js'
+import { verifyToken, optionalVerifyToken } from '../helpers/jwthelper.js'
 
 const router = express.Router()
 
+
+//only for posts/:id to extract id directly
 function getPostId(req, res) {
     const id = parseInt(req.params.id)
 
@@ -27,10 +30,10 @@ function getPostData(req, res) {
     return { title, body }
 }
 
-function getUsername(req) {
-    const username = req.query.username || req.body.authorUsername || 'guest'
-    return username.toString().trim() || 'guest'
-}
+// function getUsername(req) {
+//     const username = req.query.username || req.body.authorUsername || 'guest'
+//     return username.toString().trim() || 'guest'
+// }
 
 // TODO - protect routes with passport
 // for non-login, show only post title and body, not creator info, date, etc
@@ -40,17 +43,29 @@ function getUsername(req) {
 
 
 //view posts
-router.get('/', async (req, res, next) => {
-    try {
-        const postList = await prisma.post.findMany()
-        res.json(postList)
-    } catch (err) {
-        next(err)
+//todo- review what to send if logged in user
+//all data of all posts shouldnt be sent
+router.get('/', optionalVerifyToken, async (req, res, next) => {
+  try {
+    const postList = await prisma.post.findMany()
+
+    if (!req.user) {
+      const publicPosts = postList.map(post => ({
+        id: post.id,
+        title: post.title,
+        body: post.body
+      }))
+      return res.json(publicPosts)
     }
+
+    res.json(postList)
+  } catch (err) {
+    next(err)
+  }
 })
 
 //create new post
-router.post('/',async (req,res,next)=>{
+router.post('/',optionalVerifyToken, async (req,res,next)=>{
     try {
         const postData = getPostData(req, res)
 
@@ -58,7 +73,7 @@ router.post('/',async (req,res,next)=>{
             return
         }
 
-        const authorUsername = getUsername(req)
+        const authorUsername = req.user??='guest';
 
         const newpost = await prisma.post.create({
             data: {
@@ -105,7 +120,11 @@ router.get('/:id', async (req,res,next)=>{
 });
 
 
-router.put('/:id', async (req, res, next) => {
+// Returned:
+// 403 if the authenticated user does not own the post
+// 404 if the post is missing
+// 204 on successful delete
+router.put('/:id', verifyToken, async (req, res, next) => {
     try {
         const id = getPostId(req, res)
         const postData = getPostData(req, res)
@@ -114,17 +133,27 @@ router.put('/:id', async (req, res, next) => {
             return
         }
 
+        const existingPost = await prisma.post.findUnique({
+            where: { id }
+        })
+
+        if (!existingPost) {
+            return res.status(404).json({ error: 'Post not found' })
+        }
+
+        if (existingPost.authorUsername !== req.user?.username) {
+            return res.status(403).json({ error: 'You are not authorized to update this post.' })
+        }
+
         const updatedPost = await prisma.post.update({
-            where: {
-                id
-            },
+            where: { id },
             data: {
                 title: postData.title,
                 body: postData.body
             }
-        });
+        })
 
-        res.json(updatedPost);
+        res.json(updatedPost)
     } catch (err) {
         if (err.code === 'P2025') {
             return res.status(404).json({ error: 'Post not found' })
@@ -132,13 +161,13 @@ router.put('/:id', async (req, res, next) => {
 
         next(err)
     }
-});
+})
 
 router.post('/:id', async (req, res, next) => {
-    res.redirect(307,'/:id')//forces put redirect
-});
+    res.redirect(307, '/:id')//forces put redirect
+})
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', verifyToken, async (req, res, next) => {
     try {
         const id = getPostId(req, res)
 
@@ -146,14 +175,23 @@ router.delete('/:id', async (req, res, next) => {
             return
         }
 
-        await prisma.post.delete({
-            where: {
-                id
-            }
-        });
+        const existingPost = await prisma.post.findUnique({
+            where: { id }
+        })
 
-        // 204 No Content means deleted successfully
-        res.status(204).end(); 
+        if (!existingPost) {
+            return res.status(404).json({ error: 'Post not found' })
+        }
+
+        if (existingPost.authorUsername !== req.user?.username) {
+            return res.status(403).json({ error: 'You are not authorized to delete this post.' })
+        }
+
+        await prisma.post.delete({
+            where: { id }
+        })
+
+        res.status(204).end()
     } catch (err) {
         if (err.code === 'P2025') {
             return res.status(404).json({ error: 'Post not found' })
@@ -161,7 +199,7 @@ router.delete('/:id', async (req, res, next) => {
 
         next(err)
     }
-});
+})
 
 router.use('/:id/comments', commentRouter);
 

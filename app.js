@@ -7,6 +7,8 @@ import signupRouter from './routes/sign-up.js'
 import loginRouter from './routes/login.js'
 import { sign } from 'crypto';
 
+
+
 const app = express()
 const PORT = process.env.PORT || 6969
 
@@ -21,6 +23,7 @@ app.get('/',(req,res)=>{
 
 app.use('/signup', signupRouter);
 app.use('/login', loginRouter);
+
 
 app.use('/posts',postRouter);
 
