@@ -35,6 +35,9 @@ function getUsername(req) {
 // TODO - protect routes with passport
 // for non-login, show only post title and body, not creator info, date, etc
 // non-login users can post using guest account if no username is supplied
+//todo- put route for updating post status(publish)
+
+
 
 //view posts
 router.get('/', async (req, res, next) => {

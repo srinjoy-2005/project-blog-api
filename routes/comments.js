@@ -25,6 +25,7 @@ router.get('/', async (req, res, next) => {
     }
 })
 
+//get particular comment
 router.get('/:commentId', async (req, res, next) => {
     try {
         const comment = await prisma.comment.findFirst({
@@ -44,9 +45,36 @@ router.get('/:commentId', async (req, res, next) => {
     }
 })
 
+//post a comment
 router.post('/', async (req, res, next) => {
     try {
+        const postId = parseInt(req.params.id)
         const { text, commenterUsername } = req.body
+
+        if (Number.isNaN(postId) || !text || !commenterUsername) {
+            return res.status(400).json({
+                error: 'Post id, text, and commenterUsername are required.'
+            })
+        }
+
+        const [post, user] = await Promise.all([
+            prisma.post.findUnique({ where: { id: postId } }),
+            prisma.user.findUnique({ where: { username: commenterUsername } })
+        ])
+
+        if (!post && !user) {
+            return res.status(404).json({
+                error: 'Post and commenter user were not found.'
+            })
+        }
+
+        if (!post) {
+            return res.status(404).json({ error: 'Post not found.' })
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'Commenter username not found.' })
+        }
 
         const newComment = await prisma.comment.create({
             data: {
@@ -55,17 +83,24 @@ router.post('/', async (req, res, next) => {
                     connect: { username: commenterUsername }
                 },
                 commentOn: {
-                    connect: { id: parseInt(req.params.id) }
+                    connect: { id: postId }
                 }
             }
         })
 
         res.status(201).json(newComment)
     } catch (err) {
+        if (err.code === 'P2025') {
+            return res.status(400).json({
+                error: 'Unable to create comment. Either the post does not exist or the commenter username is invalid.'
+            })
+        }
+
         next(err)
     }
 })
 
+//delete particular comment
 router.delete('/:commentId', async (req, res, next) => {
     try {
         const deleteResult = await prisma.comment.deleteMany({
