@@ -29,7 +29,7 @@ app.use('/posts',postRouter);
 
 //404
 app.all('{*splat}',(req,res)=>{
-    res.status(404).json({ error: 'Route not found' });
+    res.status(404).json({ error: 'Route not found - root' });
 })
 
 //error handler for server/db errors

@@ -12,6 +12,8 @@ router.get('/', (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    // console.log(req.body);
+    
     const { isValid, errors, credentials } = validateLoginData(req.body)
 
     if (!isValid) {

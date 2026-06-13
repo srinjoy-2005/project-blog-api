@@ -8,13 +8,30 @@ const router = express.Router({ mergeParams: true })
 
 router.use(express.json())
 
+function getPostId(req, res) {
+    const postId = parseInt(req.params.id)
+
+    if (Number.isNaN(postId)) {
+        res.status(400).json({ error: 'Invalid post id' })
+        return null
+    }
+
+    return postId
+}
+
 //get all comments for a post
 //doesnt need auth
 router.get('/', async (req, res, next) => {
     try {
+        const postId = getPostId(req, res)
+
+        if (postId === null) {
+            return
+        }
+
         const comments = await prisma.comment.findMany({
             where: {
-                commentOnId: parseInt(req.params.id)
+                commentOnId: postId
             },
             orderBy: {
                 createdDate: 'desc'
@@ -30,10 +47,16 @@ router.get('/', async (req, res, next) => {
 //get particular comment
 router.get('/:commentId', async (req, res, next) => {
     try {
+        const postId = getPostId(req, res)
+
+        if (postId === null) {
+            return
+        }
+
         const comment = await prisma.comment.findFirst({
             where: {
                 id: parseInt(req.params.commentId),
-                commentOnId: parseInt(req.params.id)
+                commentOnId: postId
             }
         })
 
@@ -51,12 +74,16 @@ router.get('/:commentId', async (req, res, next) => {
 //only login uesrs can comment
 router.post('/', verifyToken, async (req, res, next) => {
     try {
-        const postId = parseInt(req.params.id)
+        const postId = getPostId(req, res)
         const { text, commenterUsername } = req.body
 
-        if (Number.isNaN(postId) || !text || !commenterUsername) {
+        if (postId === null) {
+            return
+        }
+
+        if (!text || !commenterUsername) {
             return res.status(400).json({
-                error: 'Post id, text, and commenterUsername are required.'
+                error: 'Text and commenterUsername are required.'
             })
         }
 
@@ -105,20 +132,42 @@ router.post('/', verifyToken, async (req, res, next) => {
 
 //delete particular comment
 //only logged in
-router.delete('/:commentId',  async (req, res, next) => {
+router.delete('/:commentId', verifyToken, async (req, res, next) => {
 
     try{
+        const postId = getPostId(req, res)
         const id = parseInt(req.params.commentId);
-        const existingComment = await prisma.comment.findUnique({
-            where: { id }
+
+        if (postId === null) {
+            return
+        }
+
+        const existingComment = await prisma.comment.findFirst({
+            where: {
+                id,
+                commentOnId: postId
+            }
         })
         console.log(existingComment);
 
-         if (!existingComment) {
-            return res.status(404).json({ error: 'Post not found' })
+        if (!existingComment) {
+            return res.status(404).json({ error: 'Post/comment not found' })
         }
 
-        res.redirect('/')
+        //check same user
+        const loginUser = req.user.username;
+        if (loginUser!==existingComment.commenterUsername){
+            console.log(`${loginUser} tries deleting comment by ${existingComment.commenterUsername}`);
+            
+            return res.status(403).json({ error: 'You are not authorized to delete this comment'})
+        }
+
+        await prisma.comment.delete({
+            where: {id}
+        })
+
+        res.status(204).end();
+        // res.redirect('/')
 
     }catch(err){
         if (err.code === 'P2025') {
